@@ -5,15 +5,19 @@ A modern web application for interacting with the Reka Research API, built with 
 ## Features
 
 - 🔍 **AI-Powered Research**: Leverage Reka's research capabilities with web browsing
-- 💬 **Real-time Chat Interface**: Smooth, responsive chat experience
+- 💬 **Real-time Chat Interface**: Smooth, responsive chat experience with markdown formatting
 - 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
 - 🎨 **Modern UI**: Clean, professional interface with smooth animations
 - 🔒 **Secure**: Environment-based API key management
-- 📚 **Citation Support**: Reka provides answers with inline citations
-- 💾 **Research History**: SQLite database stores all research queries
-- 🔍 **Search Functionality**: Find past research by keywords
-- 📊 **Analytics**: Track usage statistics and metrics
-- 🗂️ **Session Management**: Organize conversations by session
+- 📚 **Citation Support**: Reka provides answers with inline citations and clickable links
+- 💾 **Research History**: SQLite database stores all research queries with full persistence
+- 🔍 **Search Functionality**: Find past research by keywords across all queries and responses
+- 📊 **Analytics Dashboard**: Track usage statistics and metrics in real-time
+- 🗂️ **Session Management**: Organize conversations by session with easy switching
+- 🔄 **Database Reset**: Safe database management with double confirmation
+- ⚡ **Real-time Updates**: History and statistics refresh automatically after each query
+- 🎯 **Interactive History**: Click any session to restore complete conversation history
+- 📈 **Usage Statistics**: Track total queries, sessions, and performance metrics
 
 ## Quick Start
 
@@ -84,29 +88,36 @@ RekaResearch/
 - `GET /api/models` - List available models
 
 ### Database Endpoints
-- `GET /api/history` - Get all research sessions
-- `GET /api/history/<session_id>` - Get specific session history
-- `GET /api/search?q=<term>` - Search research queries
-- `GET /api/stats` - Get database statistics
+- `GET /api/history` - Get all research sessions with summary info
+- `GET /api/history/<session_id>` - Get specific session history and conversation
+- `GET /api/search?q=<term>` - Search research queries and responses
+- `GET /api/stats` - Get database statistics and usage metrics
+- `POST /api/reset` - Reset database (requires confirmation)
 
 ## Database Features
 
 ### Research Storage
-- **Automatic Storage**: Every research query is automatically saved
+- **Automatic Storage**: Every research query is automatically saved to SQLite
 - **Session Tracking**: Conversations are organized by unique session IDs
-- **Metadata**: Stores response time, tokens used, model info
-- **Full History**: Complete conversation history preserved
+- **Metadata**: Stores response time, tokens used, model info, and timestamps
+- **Full History**: Complete conversation history preserved across app restarts
 
 ### Search and Analytics
-- **Full-text Search**: Search across all queries and responses
-- **Usage Statistics**: Track total queries, sessions, and tokens
-- **Performance Metrics**: Monitor average response times
-- **Session Analytics**: View conversation patterns and history
+- **Full-text Search**: Search across all queries and responses instantly
+- **Usage Statistics**: Track total queries, sessions, and tokens in real-time
+- **Performance Metrics**: Monitor average response times and system usage
+- **Session Analytics**: View conversation patterns and detailed history
+
+### Database Management
+- **Safe Reset**: Database reset with double confirmation for safety
+- **Data Persistence**: All data survives application restarts
+- **Automatic Indexing**: Optimized for fast searches and retrieval
+- **Backup Safe**: Manual database file backup supported
 
 ### Database Schema
-- `research_sessions`: Session tracking with timestamps
-- `research_queries`: Query storage with full metadata
-- **Indexes**: Optimized for fast searches and retrieval
+- `research_sessions`: Session tracking with created/updated timestamps
+- `research_queries`: Query storage with full metadata and performance metrics
+- **Indexes**: Optimized for session_id, created_at, and full-text search
 
 ## Development
 
@@ -134,6 +145,9 @@ python init_db.py
 
 # Test database functionality
 python -c "from database import ResearchDatabase; db = ResearchDatabase(); print(db.get_database_stats())"
+
+# Reset database via API (requires confirmation)
+curl -X POST http://localhost:5000/api/reset -H "Content-Type: application/json" -d '{"confirm": true}'
 ```
 
 ## Environment Variables
@@ -157,18 +171,25 @@ python -c "from database import ResearchDatabase; db = ResearchDatabase(); print
 ## Features in Detail
 
 ### Chat Interface
-- Auto-resizing text input
+- Auto-resizing text input with Enter key support
 - Real-time message display with markdown formatting
-- Loading indicators and error handling
-- Proper citation link formatting
-- Session-based conversation tracking
+- Loading indicators and comprehensive error handling
+- Proper citation link formatting with external link support
+- Session-based conversation tracking with visual indicators
+
+### History Management
+- **Interactive History Sidebar**: Browse all past research sessions
+- **Session Restoration**: Click any session to restore complete conversation
+- **Real-time Search**: Search across all queries and responses instantly
+- **Statistics Dashboard**: Live metrics for queries, sessions, and performance
+- **Database Reset**: Safe database management with double confirmation
 
 ### Database Integration
-- **Automatic Storage**: Every query/response saved automatically
+- **Automatic Storage**: Every query/response saved automatically to SQLite
 - **Session Management**: Conversations tracked by unique session IDs
-- **Search Capability**: Find past research by keywords
-- **Analytics Dashboard**: Usage statistics and performance metrics
-- **Data Persistence**: All data survives app restarts
+- **Search Capability**: Full-text search across all stored research
+- **Analytics Dashboard**: Real-time usage statistics and performance metrics
+- **Data Persistence**: All data survives app restarts and system reboots
 
 ### Responsive Design
 - Mobile-first approach
@@ -204,6 +225,13 @@ curl http://localhost:5000/api/stats
 curl http://localhost:5000/api/history/session-id-here
 ```
 
+### Reset Database
+```bash
+curl -X POST http://localhost:5000/api/reset \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -224,9 +252,11 @@ For issues related to:
 
 ## Technical Details
 
-- **Backend**: Flask with SQLite database
-- **Frontend**: Vanilla JavaScript with modern CSS
-- **Database**: SQLite with optimized indexes
-- **API**: OpenAI-compatible Reka Research API
-- **Storage**: Persistent research history and analytics
-- **Security**: Environment-based configuration
+- **Backend**: Flask with SQLite database and comprehensive API endpoints
+- **Frontend**: Vanilla JavaScript with modern CSS Grid/Flexbox layouts
+- **Database**: SQLite with optimized indexes and full-text search
+- **API**: OpenAI-compatible Reka Research API with session management
+- **Storage**: Persistent research history and real-time analytics
+- **Security**: Environment-based configuration with safe database operations
+- **UI**: Responsive design with interactive history management
+- **Features**: Real-time updates, search functionality, and database reset capabilities
