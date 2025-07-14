@@ -778,15 +778,5 @@ document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
 });
 
-// Service Worker registration (optional, for offline support)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-                console.log('SW registered: ', registration);
-            })
-            .catch((registrationError) => {
-                console.log('SW registration failed: ', registrationError);
-            });
-    });
-}
+// Service Worker registration removed - not needed for current functionality
+// Uncomment and create service-worker.js if offline support is desired in the future
