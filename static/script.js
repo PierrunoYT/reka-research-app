@@ -2,9 +2,13 @@ class ChatApp {
     constructor() {
         this.messages = [];
         this.sessionId = null;
+        this.currentSessionHistory = [];
+        this.allSessions = [];
+        this.searchResults = [];
         this.initializeElements();
         this.setupEventListeners();
         this.setupTextareaAutoResize();
+        this.loadInitialData();
     }
 
     initializeElements() {
@@ -13,6 +17,23 @@ class ChatApp {
         this.sendButton = document.getElementById('sendButton');
         this.chatMessages = document.getElementById('chatMessages');
         this.loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // History elements
+        this.historySidebar = document.getElementById('historySidebar');
+        this.historyToggle = document.getElementById('historyToggle');
+        this.historyList = document.getElementById('historyList');
+        this.historyLoading = document.getElementById('historyLoading');
+        this.historyEmpty = document.getElementById('historyEmpty');
+        this.searchInput = document.getElementById('searchInput');
+        this.searchButton = document.getElementById('searchButton');
+        this.newSessionButton = document.getElementById('newSessionButton');
+        this.clearHistoryButton = document.getElementById('clearHistory');
+        this.resetDatabaseButton = document.getElementById('resetDatabase');
+        this.sessionInfo = document.getElementById('sessionInfo');
+        
+        // Stats elements
+        this.totalQueries = document.getElementById('totalQueries');
+        this.totalSessions = document.getElementById('totalSessions');
     }
 
     setupEventListeners() {
@@ -27,6 +48,26 @@ class ChatApp {
 
         this.messageInput.addEventListener('input', () => {
             this.toggleSendButton();
+        });
+
+        // History panel events
+        this.historyToggle.addEventListener('click', () => this.toggleHistoryPanel());
+        this.newSessionButton.addEventListener('click', () => this.startNewSession());
+        this.clearHistoryButton.addEventListener('click', () => this.clearAllHistory());
+        this.resetDatabaseButton.addEventListener('click', () => this.resetDatabase());
+        
+        // Search events
+        this.searchButton.addEventListener('click', () => this.performSearch());
+        this.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.performSearch();
+            }
+        });
+        
+        this.searchInput.addEventListener('input', (e) => {
+            if (e.target.value === '') {
+                this.loadHistory();
+            }
         });
 
         // Initial button state
@@ -175,6 +216,328 @@ class ChatApp {
             this.messageInput.focus();
         }
     }
+
+    // History Management Methods
+    async loadInitialData() {
+        try {
+            await Promise.all([
+                this.loadHistory(),
+                this.loadStats()
+            ]);
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+        }
+    }
+
+    async loadHistory() {
+        try {
+            this.showHistoryLoading(true);
+            const response = await fetch('/api/history');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.allSessions = data.sessions;
+                this.displayHistory(this.allSessions);
+            } else {
+                console.error('Failed to load history:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+        } finally {
+            this.showHistoryLoading(false);
+        }
+    }
+
+    async loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateStats(data.stats);
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+
+    async performSearch() {
+        const query = this.searchInput.value.trim();
+        if (!query) {
+            this.loadHistory();
+            return;
+        }
+
+        try {
+            this.showHistoryLoading(true);
+            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=20`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.searchResults = data.results;
+                this.displaySearchResults(this.searchResults);
+            } else {
+                console.error('Search failed:', data.error);
+            }
+        } catch (error) {
+            console.error('Error performing search:', error);
+        } finally {
+            this.showHistoryLoading(false);
+        }
+    }
+
+    displayHistory(sessions) {
+        if (!sessions || sessions.length === 0) {
+            this.historyList.style.display = 'none';
+            this.historyEmpty.style.display = 'block';
+            return;
+        }
+
+        this.historyList.style.display = 'block';
+        this.historyEmpty.style.display = 'none';
+
+        this.historyList.innerHTML = sessions.map(session => `
+            <div class="history-item ${session.session_id === this.sessionId ? 'active' : ''}" 
+                 data-session-id="${session.session_id}" 
+                 onclick="chatApp.loadSession('${session.session_id}')">
+                <div class="history-item-header">
+                    <div class="history-item-time">${this.formatDate(session.updated_at)}</div>
+                </div>
+                <div class="history-item-query">${session.last_query || 'New Session'}</div>
+                <div class="history-item-preview">${session.query_count} queries</div>
+            </div>
+        `).join('');
+    }
+
+    displaySearchResults(results) {
+        if (!results || results.length === 0) {
+            this.historyList.innerHTML = '<div class="history-empty"><p>No results found</p></div>';
+            return;
+        }
+
+        this.historyList.innerHTML = results.map(result => `
+            <div class="history-item" 
+                 data-session-id="${result.session_id}" 
+                 onclick="chatApp.loadSession('${result.session_id}')">
+                <div class="history-item-header">
+                    <div class="history-item-time">${this.formatDate(result.created_at)}</div>
+                </div>
+                <div class="history-item-query">${result.query}</div>
+                <div class="history-item-preview">${result.response.substring(0, 100)}...</div>
+            </div>
+        `).join('');
+    }
+
+    async loadSession(sessionId) {
+        try {
+            this.sessionId = sessionId;
+            this.messages = [];
+            
+            // Update UI
+            this.updateSessionInfo();
+            this.clearChatMessages();
+            
+            // Load session history
+            const response = await fetch(`/api/history/${sessionId}`);
+            const data = await response.json();
+            
+            if (data.success && data.history.length > 0) {
+                this.currentSessionHistory = data.history;
+                
+                // Display conversation
+                for (const item of data.history) {
+                    this.addMessage('user', item.query);
+                    this.addMessage('assistant', item.response);
+                    this.messages.push(
+                        { role: 'user', content: item.query },
+                        { role: 'assistant', content: item.response }
+                    );
+                }
+            }
+            
+            // Update history display
+            this.displayHistory(this.allSessions);
+            
+        } catch (error) {
+            console.error('Error loading session:', error);
+        }
+    }
+
+    startNewSession() {
+        this.sessionId = null;
+        this.messages = [];
+        this.currentSessionHistory = [];
+        this.clearChatMessages();
+        this.updateSessionInfo();
+        this.displayHistory(this.allSessions);
+        this.messageInput.focus();
+    }
+
+    async clearAllHistory() {
+        if (!confirm('Are you sure you want to clear all research history? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            // Note: This would require a backend endpoint to clear history
+            // For now, we'll just reload the page
+            window.location.reload();
+        } catch (error) {
+            console.error('Error clearing history:', error);
+        }
+    }
+
+    async resetDatabase() {
+        const confirmation = confirm(
+            'Are you sure you want to RESET the entire database?\n\n' +
+            'This will permanently delete:\n' +
+            '• All research history\n' +
+            '• All saved sessions\n' +
+            '• All statistics\n\n' +
+            'This action cannot be undone!'
+        );
+
+        if (!confirmation) {
+            return;
+        }
+
+        // Second confirmation for safety
+        const finalConfirmation = confirm(
+            'FINAL WARNING: You are about to permanently delete ALL data.\n\n' +
+            'Type "RESET" and click OK to proceed, or Cancel to abort.'
+        );
+
+        if (!finalConfirmation) {
+            return;
+        }
+
+        try {
+            this.setLoading(true);
+            
+            const response = await fetch('/api/reset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    confirm: true
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('Database reset successfully! The page will now reload.');
+                window.location.reload();
+            } else {
+                alert(`Failed to reset database: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Error resetting database:', error);
+            alert('An error occurred while resetting the database. Please try again.');
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    toggleHistoryPanel() {
+        this.historySidebar.classList.toggle('collapsed');
+        
+        // Update button icon
+        const icon = this.historyToggle.querySelector('svg path');
+        if (this.historySidebar.classList.contains('collapsed')) {
+            icon.setAttribute('d', 'M3 12h18m-9-9l9 9-9 9');
+        } else {
+            icon.setAttribute('d', 'M3 12h18m-9-9l9 9-9 9');
+        }
+    }
+
+    updateSessionInfo() {
+        if (this.sessionId) {
+            const session = this.allSessions.find(s => s.session_id === this.sessionId);
+            if (session) {
+                this.sessionInfo.textContent = `Session: ${session.query_count} queries`;
+            } else {
+                this.sessionInfo.textContent = 'Active Session';
+            }
+        } else {
+            this.sessionInfo.textContent = 'New Session';
+        }
+    }
+
+    updateStats(stats) {
+        this.totalQueries.textContent = stats.total_queries || 0;
+        this.totalSessions.textContent = stats.total_sessions || 0;
+    }
+
+    clearChatMessages() {
+        const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
+        this.chatMessages.innerHTML = '';
+        if (!this.sessionId) {
+            this.chatMessages.appendChild(welcomeMessage.cloneNode(true));
+        }
+    }
+
+    showHistoryLoading(show) {
+        this.historyLoading.style.display = show ? 'flex' : 'none';
+        this.historyList.style.display = show ? 'none' : 'block';
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString();
+    }
+
+    // Override the existing handleSubmit to refresh history after new messages
+    async handleSubmit(e) {
+        e.preventDefault();
+        
+        const message = this.messageInput.value.trim();
+        if (!message || this.sendButton.disabled) return;
+
+        // Add user message to UI
+        this.addMessage('user', message);
+        
+        // Clear input and disable form
+        this.messageInput.value = '';
+        this.messageInput.style.height = 'auto';
+        this.setLoading(true);
+
+        try {
+            const response = await this.sendMessage(message);
+            
+            if (response.success) {
+                this.addMessage('assistant', response.response);
+                this.messages = response.messages;
+                
+                // Refresh history and stats after new message
+                await Promise.all([
+                    this.loadHistory(),
+                    this.loadStats()
+                ]);
+                
+                this.updateSessionInfo();
+            } else {
+                this.addMessage('assistant', `Error: ${response.error}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            this.addMessage('assistant', 'Sorry, I encountered an error processing your request. Please try again.');
+        } finally {
+            this.setLoading(false);
+            this.toggleSendButton();
+        }
+    }
 }
 
 // Health check function
@@ -189,8 +552,9 @@ async function checkHealth() {
 }
 
 // Initialize the app when DOM is loaded
+let chatApp;
 document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
+    chatApp = new ChatApp();
     checkHealth();
 });
 

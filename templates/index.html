@@ -19,32 +19,115 @@
         </header>
 
         <main class="main-content">
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="welcome-message">
-                        <div class="welcome-icon">🔍</div>
-                        <h3>Welcome to Reka Research</h3>
-                        <p>Ask me anything! I can browse the web and provide comprehensive answers with citations.</p>
-                    </div>
-                </div>
-
-                <div class="chat-input-container">
-                    <form id="chatForm" class="chat-form">
-                        <div class="input-group">
-                            <textarea 
-                                id="messageInput" 
-                                placeholder="Ask a research question..." 
-                                rows="1"
-                                required
-                            ></textarea>
-                            <button type="submit" id="sendButton" class="send-button">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="m22 2-7 20-4-9-9-4z"/>
-                                    <path d="M22 2 11 13"/>
+            <div class="app-layout">
+                <!-- History Sidebar -->
+                <div class="history-sidebar" id="historySidebar">
+                    <div class="history-header">
+                        <h3>Research History</h3>
+                        <div class="history-controls">
+                            <button id="toggleHistory" class="toggle-button" title="Toggle History">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 12h18m-9-9l9 9-9 9"/>
+                                </svg>
+                            </button>
+                            <button id="resetDatabase" class="reset-button" title="Reset Database">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                                    <path d="M21 3v5h-5"/>
+                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                                    <path d="M3 21v-5h5"/>
+                                </svg>
+                            </button>
+                            <button id="clearHistory" class="clear-button" title="Clear All History">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                                 </svg>
                             </button>
                         </div>
-                    </form>
+                    </div>
+                    
+                    <div class="search-container">
+                        <div class="search-input-group">
+                            <input type="text" id="searchInput" placeholder="Search research history..." />
+                            <button id="searchButton" class="search-button">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="m21 21-4.35-4.35"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stats-container" id="statsContainer">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalQueries">0</span>
+                                <span class="stat-label">Queries</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalSessions">0</span>
+                                <span class="stat-label">Sessions</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="history-content" id="historyContent">
+                        <div class="history-loading" id="historyLoading">
+                            <div class="mini-spinner"></div>
+                            <p>Loading history...</p>
+                        </div>
+                        <div class="history-list" id="historyList"></div>
+                        <div class="history-empty" id="historyEmpty" style="display: none;">
+                            <p>No research history yet. Start by asking a question!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Chat Area -->
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <button id="historyToggle" class="history-toggle-button" title="Toggle History Panel">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 12h18m-9-9l9 9-9 9"/>
+                            </svg>
+                        </button>
+                        <div class="chat-session-info">
+                            <span id="sessionInfo">New Session</span>
+                        </div>
+                        <button id="newSessionButton" class="new-session-button" title="Start New Session">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="welcome-message">
+                            <div class="welcome-icon">🔍</div>
+                            <h3>Welcome to Reka Research</h3>
+                            <p>Ask me anything! I can browse the web and provide comprehensive answers with citations.</p>
+                            <p class="welcome-note">Your research history is automatically saved and searchable.</p>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <form id="chatForm" class="chat-form">
+                            <div class="input-group">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="Ask a research question..." 
+                                    rows="1"
+                                    required
+                                ></textarea>
+                                <button type="submit" id="sendButton" class="send-button">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="m22 2-7 20-4-9-9-4z"/>
+                                        <path d="M22 2 11 13"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </main>

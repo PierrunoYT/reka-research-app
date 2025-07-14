@@ -190,6 +190,47 @@ def get_database_stats():
             'success': False
         }), 500
 
+@app.route('/api/reset', methods=['POST'])
+def reset_database():
+    try:
+        # Get confirmation from request
+        data = request.get_json()
+        if not data or not data.get('confirm'):
+            return jsonify({
+                'error': 'Confirmation required',
+                'success': False
+            }), 400
+        
+        # Reset database by reinitializing
+        global db
+        import os
+        db_path = "research.db"
+        
+        # Close existing connection if any
+        db.close()
+        
+        # Remove existing database file
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            logger.info("Database file removed")
+        
+        # Reinitialize database
+        db = ResearchDatabase(db_path)
+        logger.info("Database reset successfully")
+        
+        return jsonify({
+            'message': 'Database reset successfully',
+            'success': True
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resetting database: {str(e)}")
+        return jsonify({
+            'error': 'Failed to reset database',
+            'details': str(e),
+            'success': False
+        }), 500
+
 if __name__ == '__main__':
     if not os.getenv('REKA_API_KEY'):
         logger.warning("REKA_API_KEY not found in environment variables")
