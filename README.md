@@ -92,6 +92,7 @@ RekaResearch/
 - `GET /api/history/<session_id>` - Get specific session history and conversation
 - `GET /api/search?q=<term>` - Search research queries and responses
 - `GET /api/stats` - Get database statistics and usage metrics
+- `POST /api/clear` - Clear all research history (requires confirmation)
 - `POST /api/reset` - Reset database (requires confirmation)
 
 ## Database Features
@@ -223,6 +224,13 @@ curl http://localhost:5000/api/stats
 ### Get Session History
 ```bash
 curl http://localhost:5000/api/history/session-id-here
+```
+
+### Clear All History
+```bash
+curl -X POST http://localhost:5000/api/clear \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
 ```
 
 ### Reset Database

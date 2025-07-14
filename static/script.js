@@ -594,16 +594,67 @@ class ChatApp {
     }
 
     async clearAllHistory() {
-        if (!confirm('Are you sure you want to clear all research history? This action cannot be undone.')) {
+        const confirmation = confirm(
+            'Are you sure you want to CLEAR all research history?\n\n' +
+            'This will permanently delete:\n' +
+            '• All research sessions\n' +
+            '• All saved queries and responses\n' +
+            '• All conversation history\n\n' +
+            'This action cannot be undone!'
+        );
+
+        if (!confirmation) {
+            return;
+        }
+
+        // Second confirmation for safety
+        const finalConfirmation = confirm(
+            'FINAL WARNING: You are about to permanently delete ALL history data.\n\n' +
+            'Click OK to proceed, or Cancel to abort.'
+        );
+
+        if (!finalConfirmation) {
             return;
         }
 
         try {
-            // Note: This would require a backend endpoint to clear history
-            // For now, we'll just reload the page
-            window.location.reload();
+            this.setLoading(true);
+            
+            const response = await fetch('/api/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    confirm: true
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('All research history cleared successfully!');
+                
+                // Reset UI state
+                this.allSessions = [];
+                this.currentSessionHistory = [];
+                this.sessionId = null;
+                this.messages = [];
+                
+                // Clear chat and update displays
+                this.clearChatMessages();
+                this.displayHistory([]);
+                this.updateStats({ total_queries: 0, total_sessions: 0 });
+                this.updateSessionInfo();
+                
+            } else {
+                alert(`Failed to clear history: ${data.error}`);
+            }
         } catch (error) {
             console.error('Error clearing history:', error);
+            alert('An error occurred while clearing history. Please try again.');
+        } finally {
+            this.setLoading(false);
         }
     }
 

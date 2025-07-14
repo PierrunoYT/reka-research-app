@@ -304,6 +304,38 @@ def reset_database():
             'success': False
         }), 500
 
+@app.route('/api/clear', methods=['POST'])
+def clear_database():
+    try:
+        # Get confirmation from request
+        data = request.get_json()
+        if not data or not data.get('confirm'):
+            return jsonify({
+                'error': 'Confirmation required',
+                'success': False
+            }), 400
+        
+        # Clear all data from database
+        if db.clear_all_data():
+            logger.info("Database cleared successfully")
+            return jsonify({
+                'message': 'Database cleared successfully',
+                'success': True
+            })
+        else:
+            return jsonify({
+                'error': 'Failed to clear database',
+                'success': False
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error clearing database: {str(e)}")
+        return jsonify({
+            'error': 'Failed to clear database',
+            'details': str(e),
+            'success': False
+        }), 500
+
 if __name__ == '__main__':
     if not os.getenv('REKA_API_KEY'):
         logger.warning("REKA_API_KEY not found in environment variables")

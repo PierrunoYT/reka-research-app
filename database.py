@@ -235,6 +235,25 @@ class ResearchDatabase:
             print(f"Error getting database stats: {e}")
             return {}
     
+    def clear_all_data(self) -> bool:
+        """Clear all research data from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Delete all queries first (due to foreign key constraint)
+            cursor.execute('DELETE FROM research_queries')
+            
+            # Delete all sessions
+            cursor.execute('DELETE FROM research_sessions')
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error clearing all data: {e}")
+            return False
+    
     def close(self):
         """Close database connection (if needed for cleanup)"""
         pass
