@@ -5,6 +5,9 @@ class ChatApp {
         this.currentSessionHistory = [];
         this.allSessions = [];
         this.searchResults = [];
+        this.useStreaming = true; // Enable streaming by default
+        this.currentStreamingMessage = null;
+        this.progressInterval = null;
         this.initializeElements();
         this.setupEventListeners();
         this.setupTextareaAutoResize();
@@ -34,6 +37,11 @@ class ChatApp {
         // Stats elements
         this.totalQueries = document.getElementById('totalQueries');
         this.totalSessions = document.getElementById('totalSessions');
+        
+        // Loading elements
+        this.loadingText = document.getElementById('loadingText');
+        this.progressSteps = document.getElementById('progressSteps');
+        this.progressFill = document.getElementById('progressFill');
     }
 
     setupEventListeners() {
@@ -119,6 +127,10 @@ class ChatApp {
     }
 
     async sendMessage(message) {
+        if (this.useStreaming) {
+            return this.sendStreamingMessage(message);
+        }
+        
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -127,7 +139,8 @@ class ChatApp {
             body: JSON.stringify({
                 message: message,
                 messages: this.messages,
-                session_id: this.sessionId
+                session_id: this.sessionId,
+                stream: false
             })
         });
 
@@ -143,6 +156,96 @@ class ChatApp {
         }
         
         return data;
+    }
+
+    async sendStreamingMessage(message) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Add empty assistant message for streaming
+                this.currentStreamingMessage = this.addStreamingMessage();
+                
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        messages: this.messages,
+                        session_id: this.sessionId,
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    this.removeStreamingMessage();
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let streamingContent = '';
+                let sessionId = null;
+                let finalMessages = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6);
+                            
+                            if (dataStr === '[DONE]') {
+                                this.finalizeStreamingMessage();
+                                resolve({
+                                    success: true,
+                                    response: streamingContent,
+                                    session_id: sessionId,
+                                    messages: finalMessages
+                                });
+                                return;
+                            }
+                            
+                            try {
+                                const data = JSON.parse(dataStr);
+                                
+                                switch (data.type) {
+                                    case 'start':
+                                        sessionId = data.session_id;
+                                        this.sessionId = sessionId;
+                                        break;
+                                        
+                                    case 'content':
+                                        streamingContent += data.content;
+                                        this.updateStreamingMessage(streamingContent);
+                                        break;
+                                        
+                                    case 'complete':
+                                        sessionId = data.session_id;
+                                        finalMessages = data.messages;
+                                        break;
+                                        
+                                    case 'error':
+                                        this.removeStreamingMessage();
+                                        reject(new Error(data.error));
+                                        return;
+                                }
+                            } catch (error) {
+                                console.error('Error parsing streaming data:', error);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                this.removeStreamingMessage();
+                reject(error);
+            }
+        });
     }
 
     addMessage(sender, content) {
@@ -204,17 +307,134 @@ class ChatApp {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
+    addStreamingMessage() {
+        const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant streaming-message';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.innerHTML = '<div class="typing-indicator"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+        
+        const messageTime = document.createElement('div');
+        messageTime.className = 'message-time';
+        messageTime.textContent = this.formatTime(new Date());
+        
+        messageDiv.appendChild(messageContent);
+        messageDiv.appendChild(messageTime);
+        
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
+        
+        return messageDiv;
+    }
+
+    updateStreamingMessage(content) {
+        if (this.currentStreamingMessage) {
+            const messageContent = this.currentStreamingMessage.querySelector('.message-content');
+            messageContent.innerHTML = this.formatMarkdown(content);
+            this.scrollToBottom();
+        }
+    }
+
+    finalizeStreamingMessage() {
+        if (this.currentStreamingMessage) {
+            this.currentStreamingMessage.classList.remove('streaming-message');
+            this.currentStreamingMessage = null;
+        }
+    }
+
+    removeStreamingMessage() {
+        if (this.currentStreamingMessage) {
+            this.currentStreamingMessage.remove();
+            this.currentStreamingMessage = null;
+        }
+    }
+
     setLoading(isLoading) {
         if (isLoading) {
             this.loadingOverlay.classList.add('show');
             this.sendButton.disabled = true;
             this.messageInput.disabled = true;
+            this.startProgressAnimation();
         } else {
             this.loadingOverlay.classList.remove('show');
             this.sendButton.disabled = false;
             this.messageInput.disabled = false;
             this.messageInput.focus();
+            this.stopProgressAnimation();
         }
+    }
+
+    startProgressAnimation() {
+        const steps = ['step1', 'step2', 'step3', 'step4'];
+        const messages = [
+            'Analyzing your question...',
+            'Searching the web...',
+            'Processing results...',
+            'Generating response...'
+        ];
+        
+        let currentStep = 0;
+        
+        // Reset progress
+        this.progressFill.style.width = '0%';
+        steps.forEach(stepId => {
+            const step = document.getElementById(stepId);
+            step.classList.remove('active', 'completed');
+        });
+
+        this.progressInterval = setInterval(() => {
+            if (currentStep < steps.length) {
+                // Complete previous step
+                if (currentStep > 0) {
+                    const prevStep = document.getElementById(steps[currentStep - 1]);
+                    prevStep.classList.remove('active');
+                    prevStep.classList.add('completed');
+                }
+                
+                // Activate current step
+                const currentStepEl = document.getElementById(steps[currentStep]);
+                currentStepEl.classList.add('active');
+                
+                // Update loading text
+                this.loadingText.textContent = messages[currentStep];
+                
+                // Update progress bar
+                const progress = ((currentStep + 1) / steps.length) * 100;
+                this.progressFill.style.width = `${progress}%`;
+                
+                currentStep++;
+            } else {
+                // Reset to first step for continuous animation
+                currentStep = 0;
+                steps.forEach(stepId => {
+                    const step = document.getElementById(stepId);
+                    step.classList.remove('active', 'completed');
+                });
+            }
+        }, 2000); // Change step every 2 seconds
+    }
+
+    stopProgressAnimation() {
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+        }
+        
+        // Complete all steps
+        ['step1', 'step2', 'step3', 'step4'].forEach(stepId => {
+            const step = document.getElementById(stepId);
+            step.classList.remove('active');
+            step.classList.add('completed');
+        });
+        
+        this.progressFill.style.width = '100%';
+        this.loadingText.textContent = 'Complete!';
     }
 
     // History Management Methods

@@ -140,7 +140,16 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
             <div class="spinner"></div>
-            <p>Researching your question...</p>
+            <p id="loadingText">Researching your question...</p>
+            <div class="progress-steps" id="progressSteps">
+                <div class="step active" id="step1">🔍 Analyzing query</div>
+                <div class="step" id="step2">🌐 Searching web</div>
+                <div class="step" id="step3">📊 Processing results</div>
+                <div class="step" id="step4">✍️ Generating response</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
         </div>
     </div>
 

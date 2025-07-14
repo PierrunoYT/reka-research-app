@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session, Response
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
 import logging
 import time
 import uuid
+import json
 from database import ResearchDatabase
 
 # Load environment variables
@@ -25,6 +26,70 @@ client = OpenAI(
 
 # Initialize database
 db = ResearchDatabase()
+
+def handle_streaming_response(messages, session_id, user_message, start_time):
+    """Handle streaming response from Reka Research API"""
+    def generate():
+        try:
+            response_content = ""
+            
+            # Make streaming API call to Reka Research
+            completion = client.chat.completions.create(
+                model="reka-flash-research",
+                messages=messages,
+                stream=True
+            )
+            
+            # Send initial metadata
+            yield f"data: {json.dumps({'type': 'start', 'session_id': session_id})}\n\n"
+            
+            # Process streaming chunks
+            for chunk in completion:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    response_content += content
+                    
+                    # Send content chunk
+                    yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+            
+            # Calculate response time
+            response_time = time.time() - start_time
+            
+            # Save complete response to database
+            tokens_used = 0  # Note: streaming may not provide token count
+            if session_id:
+                db.save_research(
+                    session_id=session_id,
+                    query=user_message,
+                    response=response_content,
+                    model="reka-flash-research",
+                    tokens_used=tokens_used,
+                    response_time=response_time
+                )
+            
+            # Add to messages
+            messages.append({
+                "role": "assistant",
+                "content": response_content
+            })
+            
+            # Send completion data
+            yield f"data: {json.dumps({'type': 'complete', 'session_id': session_id, 'messages': messages, 'response_time': response_time})}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error in streaming response: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
 
 @app.route('/')
 def index():
@@ -55,10 +120,18 @@ def chat():
         # Record start time for response time measurement
         start_time = time.time()
         
-        # Make API call to Reka Research
+        # Check if streaming is requested
+        stream_request = data.get('stream', False)
+        
+        if stream_request:
+            # Handle streaming response
+            return handle_streaming_response(messages, session_id, user_message, start_time)
+        
+        # Make API call to Reka Research (non-streaming)
         completion = client.chat.completions.create(
             model="reka-flash-research",
-            messages=messages
+            messages=messages,
+            stream=False
         )
         
         # Calculate response time
