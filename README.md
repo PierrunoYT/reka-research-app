@@ -24,8 +24,8 @@ A modern web application for interacting with the Reka Research API, built with 
 ### 1. Clone and Setup
 
 ```bash
-git clone <repository-url>
-cd RekaResearch
+git clone https://github.com/PierrunoYT/reka-research-app.git
+cd reka-research-app
 ```
 
 ### 2. Install Dependencies
