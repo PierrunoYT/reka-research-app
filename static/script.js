@@ -127,9 +127,10 @@ class ChatApp {
     }
 
     async sendMessage(message) {
-        if (this.useStreaming) {
-            return this.sendStreamingMessage(message);
-        }
+        // Temporarily disable streaming due to API issues
+        // if (this.useStreaming) {
+        //     return this.sendStreamingMessage(message);
+        // }
         
         const response = await fetch('/api/chat', {
             method: 'POST',
@@ -787,7 +788,7 @@ class ChatApp {
         try {
             const response = await this.sendMessage(message);
             
-            if (response.success) {
+            if (response && response.success) {
                 this.addMessage('assistant', response.response);
                 this.messages = response.messages;
                 
@@ -799,11 +800,13 @@ class ChatApp {
                 
                 this.updateSessionInfo();
             } else {
-                this.addMessage('assistant', `Error: ${response.error}`);
+                const errorMsg = response?.error || 'Unknown error occurred';
+                this.addMessage('assistant', `Error: ${errorMsg}`);
+                console.error('API Error:', response);
             }
         } catch (error) {
-            console.error('Error:', error);
-            this.addMessage('assistant', 'Sorry, I encountered an error processing your request. Please try again.');
+            console.error('Network/Request Error:', error);
+            this.addMessage('assistant', 'Sorry, there was a network error. Please check your connection and try again.');
         } finally {
             this.setLoading(false);
             this.toggleSendButton();

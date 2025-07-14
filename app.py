@@ -128,11 +128,18 @@ def chat():
             return handle_streaming_response(messages, session_id, user_message, start_time)
         
         # Make API call to Reka Research (non-streaming)
-        completion = client.chat.completions.create(
-            model="reka-flash-research",
-            messages=messages,
-            stream=False
-        )
+        try:
+            completion = client.chat.completions.create(
+                model="reka-flash-research",
+                messages=messages,
+                stream=False
+            )
+        except Exception as api_error:
+            logger.error(f"Reka API error: {str(api_error)}")
+            return jsonify({
+                'error': f'Reka API error: {str(api_error)}',
+                'success': False
+            }), 500
         
         # Calculate response time
         response_time = time.time() - start_time
