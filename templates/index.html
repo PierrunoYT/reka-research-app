@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reka Research Web App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">Reka Research</h1>
+                <p class="subtitle">AI-powered research assistant with web browsing capabilities</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <div class="welcome-icon">🔍</div>
+                        <h3>Welcome to Reka Research</h3>
+                        <p>Ask me anything! I can browse the web and provide comprehensive answers with citations.</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <form id="chatForm" class="chat-form">
+                        <div class="input-group">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Ask a research question..." 
+                                rows="1"
+                                required
+                            ></textarea>
+                            <button type="submit" id="sendButton" class="send-button">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m22 2-7 20-4-9-9-4z"/>
+                                    <path d="M22 2 11 13"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 Reka Research Web App. Powered by Reka AI.</p>
+        </footer>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Researching your question...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
