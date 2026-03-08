@@ -94,43 +94,10 @@ class ChatApp {
         this.sendButton.disabled = !hasText;
     }
 
-    async handleSubmit(e) {
-        e.preventDefault();
-        
-        const message = this.messageInput.value.trim();
-        if (!message || this.sendButton.disabled) return;
-
-        // Add user message to UI
-        this.addMessage('user', message);
-        
-        // Clear input and disable form
-        this.messageInput.value = '';
-        this.messageInput.style.height = 'auto';
-        this.setLoading(true);
-
-        try {
-            const response = await this.sendMessage(message);
-            
-            if (response.success) {
-                this.addMessage('assistant', response.response);
-                this.messages = response.messages;
-            } else {
-                this.addMessage('assistant', `Error: ${response.error}`);
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            this.addMessage('assistant', 'Sorry, I encountered an error processing your request. Please try again.');
-        } finally {
-            this.setLoading(false);
-            this.toggleSendButton();
-        }
-    }
-
     async sendMessage(message) {
-        // Temporarily disable streaming due to API issues
-        // if (this.useStreaming) {
-        //     return this.sendStreamingMessage(message);
-        // }
+        if (this.useStreaming) {
+            return this.sendStreamingMessage(message);
+        }
         
         const response = await fetch('/api/chat', {
             method: 'POST',
@@ -188,14 +155,16 @@ class ChatApp {
                 let streamingContent = '';
                 let sessionId = null;
                 let finalMessages = null;
+                let pendingBuffer = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
                     
                     if (done) break;
                     
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = (pendingBuffer + chunk).split('\n');
+                    pendingBuffer = lines.pop() || '';
                     
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
@@ -242,6 +211,17 @@ class ChatApp {
                         }
                     }
                 }
+
+                if (finalMessages === null && sessionId) {
+                    finalMessages = [...this.messages, { role: 'user', content: message }, { role: 'assistant', content: streamingContent }];
+                }
+
+                resolve({
+                    success: true,
+                    response: streamingContent,
+                    session_id: sessionId || this.sessionId,
+                    messages: finalMessages || this.messages
+                });
             } catch (error) {
                 this.removeStreamingMessage();
                 reject(error);
@@ -674,12 +654,12 @@ class ChatApp {
         }
 
         // Second confirmation for safety
-        const finalConfirmation = confirm(
+        const finalConfirmation = prompt(
             'FINAL WARNING: You are about to permanently delete ALL data.\n\n' +
-            'Type "RESET" and click OK to proceed, or Cancel to abort.'
+            'Type "RESET" (all caps) and click OK to proceed, or Cancel to abort.'
         );
 
-        if (!finalConfirmation) {
+        if (finalConfirmation !== 'RESET') {
             return;
         }
 
@@ -718,7 +698,7 @@ class ChatApp {
         // Update button icon
         const icon = this.historyToggle.querySelector('svg path');
         if (this.historySidebar.classList.contains('collapsed')) {
-            icon.setAttribute('d', 'M3 12h18m-9-9l9 9-9 9');
+            icon.setAttribute('d', 'M15 18l-6-6 6-6');
         } else {
             icon.setAttribute('d', 'M3 12h18m-9-9l9 9-9 9');
         }
@@ -745,7 +725,7 @@ class ChatApp {
     clearChatMessages() {
         const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
         this.chatMessages.innerHTML = '';
-        if (!this.sessionId) {
+        if (!this.sessionId && welcomeMessage) {
             this.chatMessages.appendChild(welcomeMessage.cloneNode(true));
         }
     }

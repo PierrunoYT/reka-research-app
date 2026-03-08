@@ -45,8 +45,14 @@ def handle_streaming_response(messages, session_id, user_message, start_time):
             
             # Process streaming chunks
             for chunk in completion:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
+                choices = getattr(chunk, "choices", [])
+                if not choices:
+                    continue
+
+                delta = getattr(choices[0], "delta", None)
+                content = getattr(delta, "content", None) if delta else None
+
+                if content:
                     response_content += content
                     
                     # Send content chunk
@@ -98,8 +104,11 @@ def index():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
-        data = request.get_json()
-        user_message = data.get('message', '')
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
+        user_message = (data.get('message') or '').strip()
         
         if not user_message:
             return jsonify({'error': 'Message is required'}), 400
@@ -112,6 +121,9 @@ def chat():
         
         # Get conversation history if provided
         messages = data.get('messages', [])
+        if not isinstance(messages, list):
+            return jsonify({'error': 'Messages must be an array'}), 400
+        messages = list(messages)
         messages.append({
             "role": "user",
             "content": user_message
